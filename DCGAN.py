@@ -46,7 +46,8 @@ random.seed(manualSeed)
 torch.manual_seed(manualSeed)
 
 # Root directory for dataset
-dataroot = "D:/git/dataset/celeba"
+# dataroot = "D:/git/dataset/celeba"
+dataroot = '/notebooks/celeba'
 
 # Number of workers for dataloader
 workers = 2
@@ -157,32 +158,10 @@ class Discriminator(nn.Module):
     def forward(self, input):
         return self.main(input)
 
-
-def run():
-    # We can use an image folder dataset the way we have it setup.
-    # Create the dataset
-    dataset = dset.ImageFolder(root=dataroot,
-                               transform=transforms.Compose([
-                                   transforms.Resize(image_size),
-                                   transforms.CenterCrop(image_size),
-                                   transforms.ToTensor(),
-                                   transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                               ]))
-    # Create the dataloader
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
-                                             shuffle=True, num_workers=workers)
-
+def create_model():
     # Decide which device we want to run on
     device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
-
-    # Plot some training images
-    real_batch = next(iter(dataloader))
-    plt.figure(figsize=(8, 8))
-    plt.axis("off")
-    plt.title("Training Images")
-    plt.imshow(
-        np.transpose(vutils.make_grid(real_batch[0].to(device)[:64], padding=2, normalize=True).cpu(), (1, 2, 0)))
-
+    
     # Create the generator
     netG = Generator(ngpu).to(device)
 
@@ -210,7 +189,40 @@ def run():
 
     # Print the model
     print(netD)
+    
+    return netG, netD
 
+def run():
+    # We can use an image folder dataset the way we have it setup.
+    # Create the dataset
+    dataset = dset.ImageFolder(root=dataroot,
+                               transform=transforms.Compose([
+                                   transforms.Resize(image_size),
+                                   transforms.CenterCrop(image_size),
+                                   transforms.ToTensor(),
+                                   transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                               ]))
+    # Create the dataloader
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
+                                             shuffle=True, num_workers=workers)
+
+    # Decide which device we want to run on
+    device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
+
+    # Plot some training images
+    real_batch = next(iter(dataloader))
+    plt.figure(figsize=(8, 8))
+    plt.axis("off")
+    plt.title("Training Images")
+    plt.imshow(
+        np.transpose(vutils.make_grid(real_batch[0].to(device)[:64], padding=2, normalize=True).cpu(), (1, 2, 0)))
+
+    netG, netD = create_model()
+    
+    # Save model
+    torch.save(netG.state_dict(), 'model/generator.pt')
+    torch.save(netD.state_dict(), 'model/discriminator.pt')
+    
     # Initialize BCELoss function
     criterion = nn.BCELoss()
 
@@ -300,11 +312,11 @@ def run():
             G_losses.append(errG.item())
             D_losses.append(errD.item())
 
-            # Check how the generator is doing by saving G's output on fixed_noise
-            if (iters % 500 == 0) or ((epoch == num_epochs - 1) and (i == len(dataloader) - 1)):
-                with torch.no_grad():
-                    fake = netG(fixed_noise).detach().cpu()
-                img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
+#             # Check how the generator is doing by saving G's output on fixed_noise
+#             if (iters % 500 == 0) or ((epoch == num_epochs - 1) and (i == len(dataloader) - 1)):
+#                 with torch.no_grad():
+#                     fake = netG(fixed_noise).detach().cpu()
+#                 img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
             iters += 1
 
         with torch.no_grad():
@@ -314,6 +326,10 @@ def run():
         plt.axis("off")
         plt.imshow(np.transpose(img, (1, 2, 0)))
         plt.savefig('epoch_%d.png' % (epoch))
+        
+        # Save model
+        torch.save(netG.state_dict(), 'model/generator_epoch%d.pt'%epoch)
+        torch.save(netD.state_dict(), 'model/discriminator_epoch%d.pt'%epoch)
 
     plt.figure(figsize=(10, 5))
     plt.title("Generator and Discriminator Loss During Training")
@@ -334,12 +350,12 @@ def run():
     #
 
     # %%capture
-    fig = plt.figure(figsize=(8, 8))
-    plt.axis("off")
-    ims = [[plt.imshow(np.transpose(i, (1, 2, 0)), animated=True)] for i in img_list]
-    ani = animation.ArtistAnimation(fig, ims, interval=1000, repeat_delay=1000, blit=True)
+#     fig = plt.figure(figsize=(8, 8))
+#     plt.axis("off")
+#     ims = [[plt.imshow(np.transpose(i, (1, 2, 0)), animated=True)] for i in img_list]
+#     ani = animation.ArtistAnimation(fig, ims, interval=1000, repeat_delay=1000, blit=True)
 
-    HTML(ani.to_jshtml())
+#     HTML(ani.to_jshtml())
 
     ######################################################################
     # **Real Images vs. Fake Images**
@@ -352,19 +368,19 @@ def run():
     real_batch = next(iter(dataloader))
 
     # Plot the real images
-    plt.figure(figsize=(15, 15))
-    plt.subplot(1, 2, 1)
-    plt.axis("off")
-    plt.title("Real Images")
-    plt.imshow(
-        np.transpose(vutils.make_grid(real_batch[0].to(device)[:64], padding=5, normalize=True).cpu(), (1, 2, 0)))
+#     plt.figure(figsize=(15, 15))
+#     plt.subplot(1, 2, 1)
+#     plt.axis("off")
+#     plt.title("Real Images")
+#     plt.imshow(
+#         np.transpose(vutils.make_grid(real_batch[0].to(device)[:64], padding=5, normalize=True).cpu(), (1, 2, 0)))
 
     # Plot the fake images from the last epoch
-    plt.subplot(1, 2, 2)
-    plt.axis("off")
-    plt.title("Fake Images")
-    plt.imshow(np.transpose(img_list[-1], (1, 2, 0)))
-    plt.show()
+#     plt.subplot(1, 2, 2)
+#     plt.axis("off")
+#     plt.title("Fake Images")
+#     plt.imshow(np.transpose(img_list[-1], (1, 2, 0)))
+#     plt.show()
 
 
 if __name__ == '__main__':
